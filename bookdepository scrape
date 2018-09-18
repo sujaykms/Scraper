@@ -1,0 +1,126 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sat May 26 14:05:56 2018
+
+@author: sujaykakkirala
+"""
+
+import requests 
+from bs4 import BeautifulSoup
+import pandas as pd
+import numpy as np
+
+def basic_info () :
+    list_df = []
+    site = 'http://www.bookdepository.com/bestsellers'
+    bookpage = requests.get(site)
+    soup = BeautifulSoup(bookpage.text, "html.parser")
+    
+    titles = soup.find_all('h3', class_ ='title')
+    for i in titles :
+        name = i.text.strip()
+        list_df.append(name)
+    
+    authors = soup.find_all('p', class_ = 'author')
+    for i in authors :
+        author = i.text.strip()
+        list_df.append(author)
+    
+    published_date = soup.find_all('p',class_='published')
+    
+    for i in published_date :
+        date = i.text.strip()
+        list_df.append(date)
+        
+    bookformats = soup.find_all('p',class_='format')
+    
+    for i in bookformats :
+        bookformat = i.text.strip()
+        list_df.append(bookformat)
+    
+    our_prices = soup.find_all('p',class_='price')
+    #print(our_prices[0].contents[0].strip())
+    
+    for i in our_prices :
+        our_price = i.contents[0].strip()
+        list_df.append(our_price)
+        
+    df= pd.DataFrame(np.array(list_df).reshape(5,30).transpose())
+    df.columns = ['Book name','Author','Published date','Format','Price']
+    print(df)
+    df.to_csv('BOOK_DATA.csv')
+
+#basic_info()
+
+def detailed_info() :
+   list_sites = ['https://www.bookdepository.com/bestsellers?page='+str(i) for i in range(0,1)]
+   list_sites[0] = 'http://www.bookdepository.com/bestsellers'
+
+   list_df = []
+   
+   for site in list_sites:
+    
+    bookpage = requests.get(site)
+    soup = BeautifulSoup(bookpage.text, "html.parser")
+    
+    name_links = soup.find_all('h3', class_ ='title')
+    
+    for i in name_links: 
+        name = i.text.strip()
+        next_page = 'http://www.bookdepository.com' + i.a['href']
+        
+        book_page = requests.get(next_page)
+        soup_elem = BeautifulSoup(book_page.text, "html.parser")
+        
+        try:
+            material = soup_elem.find('ul', class_ = "meta-info hidden-md").get_text().strip()
+        except: 
+            material = "-"
+        
+        b = soup_elem.find('ol', class_ = "breadcrumb")
+        try:
+            main_category = b("a")[0].text.strip()
+        except:
+            main_category = "-"
+        try:
+            sub_category = b("a")[1].text.strip()
+        except:
+            sub_category = "-"
+        try:
+            rating = soup_elem.find(itemprop="ratingValue").text.strip()
+        except:
+            rating = "-"
+        try:
+            rating_count = soup_elem.find("span", class_="rating-count").text.strip()
+        except:
+            rating_count = "-"
+        try: 
+            sale_price = soup_elem.find("span", class_="sale-price").text
+        except:
+            sale_price = "-"
+        try:
+            list_price = soup_elem.find("span", class_="list-price").text
+        except:
+            list_price = "-"
+        try:
+            num_of_pages = soup_elem.find(itemprop="numberOfPages").text
+        except:
+            num_of_pages = "-"
+        try:
+            date_pub = soup_elem.find(itemprop="datePublished").text
+        except:
+            date_pub = "-"
+        try:
+            isbn13 = soup_elem.find(itemprop="isbn").text
+        except:
+            isbn13 = "-"
+        list_df.append((name,material,main_category,sub_category,rating,rating_count,sale_price,
+                    list_price,num_of_pages,date_pub,isbn13))
+   
+   df = pd.DataFrame(np.array(list_df))
+   df.columns = ['Name','Format','Main-category','Sub-category','Rating','Rating-count','Sale-price',
+                    'List-price','Total pages','Published date','isbn13']
+   df.to_csv('detailed_book_info.csv')
+
+detailed_info() 
